@@ -1,0 +1,38 @@
+services:
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: rag-ollama-pull
+    depends_on:
+      - ollama
+    entrypoint: >
+      sh -c "sleep 5 && ollama pull tinyllama && ollama pull nomic-embed-text"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"
+
+  app:
+    build:
+      context: ./app
+    container_name: rag-app
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=tinyllama
+      - OLLAMA_EMBED_MODEL=nomic-embed-text
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
