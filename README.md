@@ -9,6 +9,7 @@ A full-stack web application that lets you upload a document and ask natural lan
 Retrieval-Augmented Generation is a technique for grounding a language model's responses in a specific set of documents. Instead of relying on the model's training data (which may be outdated, incomplete, or unrelated to your content), RAG retrieves the most relevant passages from your document and feeds them directly into the model's context window before generating a response.
 
 This solves two key problems with vanilla LLMs:
+
 - **Hallucination** — the model can only answer from what you gave it, so it cannot invent facts from outside the document.
 - **Knowledge scope** — the model does not need to have been trained on your document. You can ask questions about any private or domain-specific content.
 
@@ -54,10 +55,10 @@ This solves two key problems with vanilla LLMs:
 
 ## Why Two Models?
 
-| Model | Role | Size |
-|---|---|---|
+| Model              | Role                               | Size    |
+| ------------------ | ---------------------------------- | ------- |
 | `nomic-embed-text` | Converts text to vector embeddings | ~274 MB |
-| `tinyllama` | Generates natural language answers | ~637 MB |
+| `tinyllama`        | Generates natural language answers | ~637 MB |
 
 These are separate concerns. Embedding models produce fixed-length vectors optimized for semantic similarity — they are not designed to generate text. Generation models take a prompt and produce a continuation. Using a dedicated embedding model produces significantly better retrieval quality than using the generation model for both tasks.
 
@@ -78,15 +79,15 @@ The chunk size was chosen to fit comfortably within tinyllama's context window w
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| LLM | TinyLlama 1.1B (Q4_0 quantized) via Ollama |
-| Embeddings | nomic-embed-text v1.5 via Ollama |
-| Vector store | ChromaDB |
-| Orchestration | LangChain |
-| Backend | FastAPI + Python 3.11 |
-| Frontend | Vanilla HTML/JS (no framework) |
-| Containerization | Docker Compose |
+| Layer            | Technology                                 |
+| ---------------- | ------------------------------------------ |
+| LLM              | TinyLlama 1.1B (Q4_0 quantized) via Ollama |
+| Embeddings       | nomic-embed-text v1.5 via Ollama           |
+| Vector store     | ChromaDB                                   |
+| Orchestration    | LangChain                                  |
+| Backend          | FastAPI + Python 3.11                      |
+| Frontend         | Vanilla HTML/JS (no framework)             |
+| Containerization | Docker Compose                             |
 
 ---
 
@@ -100,8 +101,13 @@ The chunk size was chosen to fit comfortably within tinyllama's context window w
 ### Run
 
 ```bash
-git clone <your-repo>
-cd rag-app
+# Clone (SSH)
+git clone git@github.com:joshmfrancis/RAG-AI-PDF-Summarizer.git
+cd RAG-AI-PDF-Summarizer
+
+# OR clone via HTTPS
+# git clone https://github.com/joshmfrancis/RAG-AI-PDF-Summarizer.git
+# cd RAG-AI-PDF-Summarizer
 
 docker compose up --build
 ```
@@ -122,13 +128,13 @@ Change `OLLAMA_MODEL` in `docker-compose.yml` and update the pull command accord
 
 ## API Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/` | Web UI |
-| `GET` | `/status` | Returns model info and document load state |
-| `GET` | `/health` | Checks Ollama connectivity |
-| `POST` | `/upload` | Upload a document (PDF, TXT, MD) |
-| `POST` | `/ask` | Ask a question — returns SSE stream |
+| Method | Path      | Description                                |
+| ------ | --------- | ------------------------------------------ |
+| `GET`  | `/`       | Web UI                                     |
+| `GET`  | `/status` | Returns model info and document load state |
+| `GET`  | `/health` | Checks Ollama connectivity                 |
+| `POST` | `/upload` | Upload a document (PDF, TXT, MD)           |
+| `POST` | `/ask`    | Ask a question — returns SSE stream        |
 
 ---
 
