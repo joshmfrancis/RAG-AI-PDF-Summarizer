@@ -21,9 +21,9 @@ This solves two key problems with vanilla LLMs:
 │                       Docker Compose                        │
 │                                                             │
 │  ┌─────────────────────┐      ┌──────────────────────────┐  │
-│  │    FastAPI Backend  │      │         Ollama            │  │
+│  │    FastAPI Backend  │      │         Ollama           │  │
 │  │    (port 8000)      │◄────►│  tinyllama  (port 11434) │  │
-│  │                     │      │  nomic-embed-text         │  │
+│  │                     │      │  nomic-embed-text        │  │
 │  │  LangChain          │      │                          │  │
 │  │  ChromaDB           │      │  Local CPU inference     │  │
 │  │  FastAPI            │      │  No external API calls   │  │
@@ -100,7 +100,7 @@ The chunk size was chosen to fit comfortably within tinyllama's context window w
 ### Run
 
 ```bash
-git clone <your-repo>
+git clone https://github.com/joshmfrancis/RAG-AI-PDF-Summarizer.git
 cd rag-app
 
 docker compose up --build
