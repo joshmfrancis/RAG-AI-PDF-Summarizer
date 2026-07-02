@@ -241,27 +241,35 @@
     .input-bar {
       border-top: 1px solid var(--border);
       background: var(--surface);
-      padding: 14px 24px;
+      padding: 16px 24px;
       display: flex;
-      gap: 10px;
-      align-items: flex-end;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .input-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
     textarea#question {
-      flex: 1;
+      width: 100%;
       border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 10px 12px;
+      border-radius: 6px;
+      padding: 10px 14px;
       font-family: inherit;
       font-size: 14px;
       resize: none;
-      min-height: 42px;
+      min-height: 44px;
       max-height: 140px;
       outline: none;
       line-height: 1.5;
       background: var(--input-bg);
       color: var(--text);
       transition: border-color 0.2s;
+      display: block;
     }
     textarea#question:focus { border-color: var(--text); }
     textarea#question:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -271,18 +279,21 @@
       background: var(--btn-bg);
       color: var(--btn-text);
       border: none;
-      border-radius: 5px;
-      padding: 10px 18px;
-      font-size: 13px;
+      border-radius: 6px;
+      padding: 0 22px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      height: 42px;
+      height: 44px;
+      align-self: center;
+      white-space: nowrap;
       transition: background 0.2s;
+      flex-shrink: 0;
     }
     button#ask-btn:hover { background: var(--btn-hover); }
     button#ask-btn:disabled { background: var(--btn-disabled); cursor: not-allowed; }
 
-    .input-hint { font-size: 11px; color: var(--subtle); margin-top: 5px; }
+    .input-hint { font-size: 11px; color: var(--subtle); }
 
     .sources-toggle {
       background: none;
@@ -363,7 +374,7 @@
     </div>
 
     <div class="input-bar">
-      <div style="flex:1">
+      <div class="input-wrap">
         <textarea id="question" placeholder="Ask a question about your document..." rows="1" disabled></textarea>
         <div class="input-hint">Enter to send · Shift+Enter for new line</div>
       </div>
