@@ -100,8 +100,17 @@ async def upload_file(file: UploadFile = File(...)):
 
     embeddings = OllamaEmbeddings(base_url=OLLAMA_BASE_URL, model=OLLAMA_EMBED_MODEL)
 
+    # Delete old vectorstore and release SQLite connection before wiping directory
+    if vectorstore is not None:
+        try:
+            vectorstore._client._system.stop()
+        except Exception:
+            pass
+        vectorstore = None
+
     if CHROMA_DIR.exists():
         shutil.rmtree(CHROMA_DIR)
+    CHROMA_DIR.mkdir(parents=True, exist_ok=True)
 
     vectorstore = Chroma.from_documents(
         documents=chunks,
