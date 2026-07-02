@@ -17,7 +17,7 @@ from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
 
 UPLOAD_DIR = Path("/tmp/uploads")
-CHROMA_DIR = Path("/app/chroma")
+CHROMA_DIR = Path("/tmp/chroma")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")

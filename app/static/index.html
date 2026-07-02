@@ -1,358 +1,622 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Retrieval-Augmented Generation</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retrieval-Augmented Generation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <link rel="stylesheet" href="/static/styles.css" />
-  </head>
-  <body>
-    <header>
-      <h1>Retrieval-Augmented Generation</h1>
-      <div class="header-right">
-        <span id="status-label">No document loaded</span>
-        <button class="toggle-btn" id="theme-toggle">Light mode</button>
+    /* Light mode defaults */
+    :root {
+      --bg: #f5f5f5;
+      --surface: #fff;
+      --border: #ddd;
+      --text: #222;
+      --muted: #777;
+      --subtle: #aaa;
+      --input-bg: #fff;
+      --btn-bg: #222;
+      --btn-text: #fff;
+      --btn-hover: #444;
+      --btn-disabled: #bbb;
+      --ok: #2e7d32;
+      --err: #c62828;
+      --chunk-bg: #f0f0f0;
+      --chunk-border: #ccc;
+    }
+
+    html.dark {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #e0e0e0;
+      --muted: #888;
+      --subtle: #555;
+      --input-bg: #111;
+      --btn-bg: #e0e0e0;
+      --btn-text: #111;
+      --btn-hover: #fff;
+      --btn-disabled: #333;
+      --ok: #66bb6a;
+      --err: #ef5350;
+      --chunk-bg: #1e1e1e;
+      --chunk-border: #333;
+    }
+
+    body {
+      font-family: system-ui, sans-serif;
+      font-size: 15px;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    header h1 { font-size: 16px; font-weight: 600; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    #status-label { font-size: 13px; color: var(--muted); }
+    #status-label.ready { color: var(--ok); }
+
+    .toggle-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text);
+      transition: background 0.2s;
+    }
+    .toggle-btn:hover { background: var(--border); }
+
+    .container { display: flex; flex: 1; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .sidebar h2 {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 8px;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 6px;
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--text);
+      background: var(--chunk-bg);
+    }
+    .dropzone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .dropzone p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .dropzone p strong { color: var(--text); }
+
+    .progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--text); width: 0%; transition: width 0.3s; }
+
+    .upload-status { display: none; font-size: 13px; color: var(--muted); margin-top: 6px; }
+    .upload-status.visible { display: block; }
+    .upload-status.ok { color: var(--ok); }
+    .upload-status.err { color: var(--err); }
+
+    .doc-info { display: none; font-size: 13px; color: var(--muted); line-height: 1.8; }
+    .doc-info.visible { display: block; }
+    .doc-info strong { color: var(--text); }
+
+    .model-info { font-size: 13px; color: var(--muted); line-height: 1.8; }
+    .model-info strong { color: var(--text); }
+
+    .how-it-works { font-size: 13px; color: var(--muted); }
+    .step { display: flex; gap: 8px; margin-bottom: 6px; line-height: 1.5; }
+    .step-num { font-weight: 600; color: var(--text); min-width: 16px; }
+
+    /* Main */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .empty-state { margin: auto; text-align: center; color: var(--subtle); }
+    .empty-state p { font-size: 14px; }
+    .empty-state .sub { font-size: 13px; margin-top: 4px; }
+
+    .msg { display: flex; flex-direction: column; gap: 6px; max-width: 780px; }
+
+    .msg-role {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .msg.user .msg-body {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .msg.assistant .msg-body {
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      color: var(--text);
+    }
+
+    /* Source chunks */
+    .sources {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .sources-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+    }
+
+    .chunk {
+      background: var(--chunk-bg);
+      border: 1px solid var(--chunk-border);
+      border-radius: 5px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .chunk-header {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 3px;
+      font-size: 11px;
+    }
+
+    .chunk-text {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 7px; height: 13px;
+      background: var(--text);
+      vertical-align: middle;
+      margin-left: 2px;
+      animation: blink 0.8s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Input */
+    .input-bar {
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      padding: 14px 24px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    textarea#question {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      resize: none;
+      min-height: 42px;
+      max-height: 140px;
+      outline: none;
+      line-height: 1.5;
+      background: var(--input-bg);
+      color: var(--text);
+      transition: border-color 0.2s;
+    }
+    textarea#question:focus { border-color: var(--text); }
+    textarea#question:disabled { opacity: 0.5; cursor: not-allowed; }
+    textarea#question::placeholder { color: var(--subtle); }
+
+    button#ask-btn {
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      border: none;
+      border-radius: 5px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      height: 42px;
+      transition: background 0.2s;
+    }
+    button#ask-btn:hover { background: var(--btn-hover); }
+    button#ask-btn:disabled { background: var(--btn-disabled); cursor: not-allowed; }
+
+    .input-hint { font-size: 11px; color: var(--subtle); margin-top: 5px; }
+
+    .sources-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s;
+    }
+    .sources-toggle:hover { background: var(--chunk-bg); color: var(--text); }
+
+    .sources-body {
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Retrieval-Augmented Generation</h1>
+  <div class="header-right">
+    <span id="status-label">No document loaded</span>
+    <button class="toggle-btn" id="theme-toggle">Light mode</button>
+  </div>
+</header>
+
+<div class="container">
+  <aside class="sidebar">
+
+    <div>
+      <h2>Document</h2>
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="file-input" accept=".pdf,.txt,.md" />
+        <p><strong>Click to upload</strong> or drag and drop<br/>PDF · TXT · MD</p>
       </div>
-    </header>
-
-    <div class="container">
-      <aside class="sidebar">
-        <div>
-          <h2>Document</h2>
-          <div class="dropzone" id="dropzone">
-            <input type="file" id="file-input" accept=".pdf,.txt,.md" />
-            <p>
-              <strong>Click to upload</strong> or drag and drop<br />PDF · TXT ·
-              MD
-            </p>
-          </div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill"></div>
-          </div>
-          <div class="upload-status" id="upload-status"></div>
-        </div>
-
-        <div class="doc-info" id="doc-info">
-          <h2>Loaded</h2>
-          File: <strong id="di-file">—</strong><br />
-          Pages: <strong id="di-pages">—</strong><br />
-          Chunks: <strong id="di-chunks">—</strong>
-        </div>
-
-        <div>
-          <h2>Model</h2>
-          <div class="model-info">
-            LLM: <strong id="model-name">—</strong><br />
-            Embeddings: <strong id="embed-name">—</strong><br />
-            Running: <strong>locally via Ollama</strong>
-          </div>
-        </div>
-
-        <div>
-          <h2>How It Works</h2>
-          <div class="how-it-works">
-            <div class="step">
-              <span class="step-num">1.</span
-              ><span
-                >Upload a document — split into chunks and embedded
-                locally</span
-              >
-            </div>
-            <div class="step">
-              <span class="step-num">2.</span
-              ><span
-                >Your question is embedded and matched against the closest
-                chunks</span
-              >
-            </div>
-            <div class="step">
-              <span class="step-num">3.</span
-              ><span>The LLM answers using only what is in your document</span>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <main class="main">
-        <div class="chat" id="chat">
-          <div class="empty-state" id="empty-state">
-            <p>Upload a document to get started</p>
-            <p class="sub">Answers come only from the content of your file</p>
-          </div>
-        </div>
-
-        <div class="input-bar">
-          <div style="flex: 1">
-            <textarea
-              id="question"
-              placeholder="Ask a question about your document..."
-              rows="1"
-              disabled
-            ></textarea>
-            <div class="input-hint">
-              Enter to send · Shift+Enter for new line
-            </div>
-          </div>
-          <button id="ask-btn" disabled>Ask</button>
-        </div>
-      </main>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="upload-status" id="upload-status"></div>
     </div>
 
-    <script>
-      const fileInput = document.getElementById('file-input');
-      const dropzone = document.getElementById('dropzone');
-      const uploadStatus = document.getElementById('upload-status');
-      const progressFill = document.getElementById('progress-fill');
-      const docInfo = document.getElementById('doc-info');
-      const chat = document.getElementById('chat');
-      const emptyState = document.getElementById('empty-state');
-      const questionEl = document.getElementById('question');
-      const askBtn = document.getElementById('ask-btn');
-      const statusLabel = document.getElementById('status-label');
-      const themeToggle = document.getElementById('theme-toggle');
+    <div class="doc-info" id="doc-info">
+      <h2>Loaded</h2>
+      File: <strong id="di-file">—</strong><br/>
+      Pages: <strong id="di-pages">—</strong><br/>
+      Chunks: <strong id="di-chunks">—</strong>
+    </div>
 
-      let docLoaded = false;
-      let streaming = false;
-
-      // Dark mode toggle (starts dark)
-      themeToggle.addEventListener('click', () => {
-        const isDark = document.documentElement.classList.toggle('dark');
-        themeToggle.textContent = isDark ? 'Light mode' : 'Dark mode';
-      });
-
-      fetch('/status')
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.model)
-            document.getElementById('model-name').textContent = d.model;
-          if (d.embed_model)
-            document.getElementById('embed-name').textContent = d.embed_model;
-        })
-        .catch(() => {});
-
-      dropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropzone.classList.add('dragover');
-      });
-      dropzone.addEventListener('dragleave', () =>
-        dropzone.classList.remove('dragover'),
-      );
-      dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('dragover');
-        if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
-      });
-      fileInput.addEventListener('change', () => {
-        if (fileInput.files[0]) uploadFile(fileInput.files[0]);
-      });
-
-      async function uploadFile(file) {
-        uploadStatus.className = 'upload-status visible';
-        uploadStatus.textContent = `Uploading ${file.name}...`;
-        progressFill.style.width = '0%';
-        statusLabel.textContent = 'Processing...';
-        statusLabel.className = '';
-
-        let p = 0;
-        const ticker = setInterval(() => {
-          p = Math.min(p + Math.random() * 8, 88);
-          progressFill.style.width = p + '%';
-        }, 200);
-
-        try {
-          const fd = new FormData();
-          fd.append('file', file);
-          const res = await fetch('/upload', { method: 'POST', body: fd });
-          clearInterval(ticker);
-          progressFill.style.width = '100%';
-
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || 'Upload failed');
-          }
-
-          const data = await res.json();
-          uploadStatus.className = 'upload-status visible ok';
-          uploadStatus.textContent = data.message;
-
-          document.getElementById('di-file').textContent = file.name;
-          document.getElementById('di-pages').textContent = data.pages ?? '—';
-          document.getElementById('di-chunks').textContent = data.chunks;
-          docInfo.classList.add('visible');
-
-          statusLabel.textContent = 'Ready';
-          statusLabel.className = 'ready';
-          docLoaded = true;
-          questionEl.disabled = false;
-          askBtn.disabled = false;
-          questionEl.focus();
-        } catch (err) {
-          clearInterval(ticker);
-          uploadStatus.className = 'upload-status visible err';
-          uploadStatus.textContent = err.message;
-          statusLabel.textContent = 'Error';
-          statusLabel.className = '';
-        }
-      }
-
-      questionEl.addEventListener('input', () => {
-        questionEl.style.height = 'auto';
-        questionEl.style.height = Math.min(questionEl.scrollHeight, 140) + 'px';
-      });
-
-      questionEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          if (!streaming && docLoaded) submitQuestion();
-        }
-      });
-      askBtn.addEventListener('click', () => {
-        if (!streaming && docLoaded) submitQuestion();
-      });
-
-      function escHtml(s) {
-        return s
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-      }
-
-      function appendMessage(role, text = '') {
-        emptyState.style.display = 'none';
-
-        const div = document.createElement('div');
-        div.className = `msg ${role}`;
-
-        div.innerHTML = `
-    <div class="msg-role">${role === 'user' ? 'You' : 'Assistant'}</div>
-    <div class="msg-body">${escHtml(text)}</div>
-  `;
-
-        chat.appendChild(div);
-        chat.scrollTop = chat.scrollHeight;
-
-        return div.querySelector('.msg-body');
-      }
-
-      function appendSources(chunks) {
-        if (!chunks || chunks.length === 0) return;
-
-        const container = document.createElement('div');
-        container.className = 'sources';
-
-        container.innerHTML = `
-    <details class="sources-collapse">
-      <summary class="sources-label">
-        Retrieved Chunks (${chunks.length})
-      </summary>
-      <div class="sources-content"></div>
-    </details>
-  `;
-
-        const content = container.querySelector('.sources-content');
-
-        chunks.forEach((chunk, i) => {
-          const page =
-            chunk.metadata?.page != null
-              ? `Page ${chunk.metadata.page + 1}`
-              : 'Document';
-
-          const el = document.createElement('details');
-          el.className = 'chunk';
-
-          el.innerHTML = `
-      <summary class="chunk-header">
-        Chunk ${i + 1} • ${page}
-      </summary>
-      <div class="chunk-text">
-        ${escHtml(chunk.content)}
+    <div>
+      <h2>Model</h2>
+      <div class="model-info">
+        LLM: <strong id="model-name">—</strong><br/>
+        Embeddings: <strong id="embed-name">—</strong><br/>
+        Running: <strong>locally via Ollama</strong>
       </div>
-    `;
+    </div>
 
-          content.appendChild(el);
-        });
+    <div>
+      <h2>How It Works</h2>
+      <div class="how-it-works">
+        <div class="step"><span class="step-num">1.</span><span>Upload a document — split into chunks and embedded locally</span></div>
+        <div class="step"><span class="step-num">2.</span><span>Your question is embedded and matched against the closest chunks</span></div>
+        <div class="step"><span class="step-num">3.</span><span>The LLM answers using only what is in your document</span></div>
+      </div>
+    </div>
 
-        chat.appendChild(container);
-        chat.scrollTop = chat.scrollHeight;
+  </aside>
+
+  <main class="main">
+    <div class="chat" id="chat">
+      <div class="empty-state" id="empty-state">
+        <p>Upload a document to get started</p>
+        <p class="sub">Answers come only from the content of your file</p>
+      </div>
+    </div>
+
+    <div class="input-bar">
+      <div style="flex:1">
+        <textarea id="question" placeholder="Ask a question about your document..." rows="1" disabled></textarea>
+        <div class="input-hint">Enter to send · Shift+Enter for new line</div>
+      </div>
+      <button id="ask-btn" disabled>Ask</button>
+    </div>
+  </main>
+</div>
+
+<script>
+  const fileInput    = document.getElementById('file-input');
+  const dropzone     = document.getElementById('dropzone');
+  const uploadStatus = document.getElementById('upload-status');
+  const progressFill = document.getElementById('progress-fill');
+  const docInfo      = document.getElementById('doc-info');
+  const chat         = document.getElementById('chat');
+  const emptyState   = document.getElementById('empty-state');
+  const questionEl   = document.getElementById('question');
+  const askBtn       = document.getElementById('ask-btn');
+  const statusLabel  = document.getElementById('status-label');
+  const themeToggle  = document.getElementById('theme-toggle');
+
+  let docLoaded = false;
+  let streaming = false;
+
+  // Dark mode toggle (starts dark)
+  themeToggle.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    themeToggle.textContent = isDark ? 'Light mode' : 'Dark mode';
+  });
+
+  fetch('/status').then(r => r.json()).then(d => {
+    if (d.model) document.getElementById('model-name').textContent = d.model;
+    if (d.embed_model) document.getElementById('embed-name').textContent = d.embed_model;
+  }).catch(() => {});
+
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) uploadFile(fileInput.files[0]); });
+
+  async function uploadFile(file) {
+    uploadStatus.className = 'upload-status visible';
+    uploadStatus.textContent = `Uploading ${file.name}...`;
+    progressFill.style.width = '0%';
+    statusLabel.textContent = 'Processing...';
+    statusLabel.className = '';
+
+    let p = 0;
+    const ticker = setInterval(() => {
+      p = Math.min(p + Math.random() * 8, 88);
+      progressFill.style.width = p + '%';
+    }, 200);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/upload', { method: 'POST', body: fd });
+      clearInterval(ticker);
+      progressFill.style.width = '100%';
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Upload failed');
       }
-      async function submitQuestion() {
-        const q = questionEl.value.trim();
-        if (!q) return;
 
-        questionEl.value = '';
-        questionEl.style.height = 'auto';
-        questionEl.disabled = true;
-        askBtn.disabled = true;
-        streaming = true;
-        statusLabel.textContent = 'Thinking...';
-        statusLabel.className = '';
+      const data = await res.json();
+      uploadStatus.className = 'upload-status visible ok';
+      uploadStatus.textContent = data.message;
 
-        appendMessage('user', q);
-        const answerBody = appendMessage('assistant', '');
+      document.getElementById('di-file').textContent = file.name;
+      document.getElementById('di-pages').textContent = data.pages ?? '—';
+      document.getElementById('di-chunks').textContent = data.chunks;
+      docInfo.classList.add('visible');
 
-        const cursor = document.createElement('span');
-        cursor.className = 'cursor';
-        answerBody.appendChild(cursor);
+      statusLabel.textContent = 'Ready';
+      statusLabel.className = 'ready';
+      docLoaded = true;
+      questionEl.disabled = false;
+      askBtn.disabled = false;
+      questionEl.focus();
 
-        try {
-          const res = await fetch('/ask', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: q }),
-          });
+    } catch (err) {
+      clearInterval(ticker);
+      uploadStatus.className = 'upload-status visible err';
+      uploadStatus.textContent = err.message;
+      statusLabel.textContent = 'Error';
+      statusLabel.className = '';
+    }
+  }
 
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || 'Request failed');
+  questionEl.addEventListener('input', () => {
+    questionEl.style.height = 'auto';
+    questionEl.style.height = Math.min(questionEl.scrollHeight, 140) + 'px';
+  });
+
+  questionEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!streaming && docLoaded) submitQuestion();
+    }
+  });
+  askBtn.addEventListener('click', () => { if (!streaming && docLoaded) submitQuestion(); });
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function appendMessage(role, text) {
+    emptyState.style.display = 'none';
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    const roleLabel = document.createElement('div');
+    roleLabel.className = 'msg-role';
+    roleLabel.textContent = role === 'user' ? 'You' : 'Assistant';
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+    if (text) body.textContent = text;
+    div.appendChild(roleLabel);
+    div.appendChild(body);
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return body;
+  }
+
+  function appendSources(chunks) {
+    if (!chunks || chunks.length === 0) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sources';
+
+    // Collapsed toggle header
+    const toggle = document.createElement('button');
+    toggle.className = 'sources-toggle';
+    toggle.textContent = `▶ Show retrieved chunks (${chunks.length})`;
+    let open = false;
+
+    const body = document.createElement('div');
+    body.className = 'sources-body';
+    body.style.display = 'none';
+
+    chunks.forEach((chunk, i) => {
+      const el = document.createElement('div');
+      el.className = 'chunk';
+      const page = chunk.metadata && chunk.metadata.page != null
+        ? ` · Page ${chunk.metadata.page + 1}`
+        : '';
+      // Clean up chunk text: collapse whitespace/newlines into readable prose
+      const cleaned = chunk.content.replace(/\s+/g, ' ').trim();
+      const preview = cleaned.slice(0, 400) + (cleaned.length > 400 ? '…' : '');
+      const header = document.createElement('div');
+      header.className = 'chunk-header';
+      header.textContent = `Chunk ${i + 1}${page}`;
+      const text = document.createElement('div');
+      text.className = 'chunk-text';
+      text.textContent = preview;
+      el.appendChild(header);
+      el.appendChild(text);
+      body.appendChild(el);
+    });
+
+    toggle.addEventListener('click', () => {
+      open = !open;
+      body.style.display = open ? 'flex' : 'none';
+      toggle.textContent = open
+        ? `▼ Hide retrieved chunks (${chunks.length})`
+        : `▶ Show retrieved chunks (${chunks.length})`;
+    });
+
+    wrapper.appendChild(toggle);
+    wrapper.appendChild(body);
+    chat.appendChild(wrapper);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  async function submitQuestion() {
+    const q = questionEl.value.trim();
+    if (!q) return;
+
+    questionEl.value = '';
+    questionEl.style.height = 'auto';
+    questionEl.disabled = true;
+    askBtn.disabled = true;
+    streaming = true;
+    statusLabel.textContent = 'Thinking...';
+    statusLabel.className = '';
+
+    appendMessage('user', q);
+    const answerBody = appendMessage('assistant', '');
+
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    answerBody.appendChild(cursor);
+
+    try {
+      const res = await fetch('/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Request failed');
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let answer = '';
+      let chunks = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6);
+          if (payload === '[DONE]') break;
+          // Check if this is the chunks metadata line
+          if (payload.startsWith('[CHUNKS]')) {
+            try { chunks = JSON.parse(payload.slice(8)); } catch(e) {}
+            continue;
           }
-
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-          let answer = '';
-          let chunks = null;
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-            for (const line of lines) {
-              if (!line.startsWith('data: ')) continue;
-              const payload = line.slice(6);
-              if (payload === '[DONE]') break;
-              // Check if this is the chunks metadata line
-              if (payload.startsWith('[CHUNKS]')) {
-                try {
-                  chunks = JSON.parse(payload.slice(8));
-                } catch (e) {}
-                continue;
-              }
-              answer += payload;
-              answerBody.textContent = answer;
-              answerBody.appendChild(cursor);
-              chat.scrollTop = chat.scrollHeight;
-            }
-          }
-
-          cursor.remove();
-          // Show source chunks after answer
-          if (chunks) appendSources(chunks);
-        } catch (err) {
-          cursor.remove();
-          answerBody.style.color = 'var(--err)';
-          answerBody.textContent = `Error: ${err.message}`;
+          answer += payload;
+          answerBody.textContent = answer;
+          answerBody.appendChild(cursor);
+          chat.scrollTop = chat.scrollHeight;
         }
-
-        streaming = false;
-        questionEl.disabled = false;
-        askBtn.disabled = false;
-        statusLabel.textContent = 'Ready';
-        statusLabel.className = 'ready';
-        questionEl.focus();
       }
-    </script>
-  </body>
+
+      cursor.remove();
+      // Show source chunks after answer
+      if (chunks) appendSources(chunks);
+
+    } catch (err) {
+      cursor.remove();
+      answerBody.style.color = 'var(--err)';
+      answerBody.textContent = `Error: ${err.message}`;
+    }
+
+    streaming = false;
+    questionEl.disabled = false;
+    askBtn.disabled = false;
+    statusLabel.textContent = 'Ready';
+    statusLabel.className = 'ready';
+    questionEl.focus();
+  }
+</script>
+</body>
 </html>
