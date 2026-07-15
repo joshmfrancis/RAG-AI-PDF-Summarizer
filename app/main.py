@@ -132,14 +132,19 @@ async def ask_question(body: QuestionRequest):
     )
     context = "\n\n".join(d.page_content for d in docs)
 
-    prompt = f"""Use the following context to answer the question. If the answer is not in the context, say so.
+    prompt_template = """
+You are a strict assistant that ONLY answers questions based on the provided context. 
+If the answer to the question cannot be explicitly found in the context below, you 
+must respond exactly with: "I am sorry, but the provided document does not contain that information." 
+Do not use your own outside knowledge under any circumstances.
 
 Context:
 {context}
 
-Question: {body.question}
-
+Question: {question}
 Answer:"""
+
+    prompt = prompt_template.format(context=context, question=body.question)
 
     # Serialize chunk metadata to send to frontend
     chunk_data = json.dumps([
